@@ -55,7 +55,7 @@ H — городской центр, Esc — отмена<br>
 <script>
 'use strict';
 const cv=document.getElementById('cv'),g=cv.getContext('2d');
-let VW=0,VH=0;function resize(){VW=cv.width=innerWidth;VH=cv.height=innerHeight}resize();addEventListener('resize',resize);
+let VW=0,VH=0,camReady=false;function resize(){let c=null;if(camReady&&VW>0&&VH>0)c=toTile(VW/2,HUDT+(VH-HUDT-HUDB)/2);VW=cv.width=innerWidth;VH=cv.height=innerHeight;if(c)centerOn(c[0],c[1])}resize();addEventListener('resize',resize);
 const N=48,HUDT=39,HUDB=164;
 let sd=20261101;const R=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};
 function hs(x,y){let s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s)}
@@ -359,7 +359,7 @@ for(let m=0;m<2;m++){const S=(x,y)=>m?[y,x]:[x,y];
  [[12,27]].forEach(p=>{const f=freeNear(...S(...p));const a=mkUnit(2,'boar',f[0],f[1]);a.home=[f[0],f[1]]});
  [[3,20]].forEach(p=>{const f=freeNear(...S(...p));const a=mkUnit(2,'bear',f[0],f[1]);a.home=[f[0],f[1]]});
  [[30,42],[8,15]].forEach(p=>{for(let k=0;k<2;k++){const f=freeNear(S(...p)[0]+k,S(...p)[1]);const a=mkUnit(2,'wolf',f[0],f[1]);a.home=[f[0],f[1]]}});}
-centerOn(BASES[0][0]+1.5,BASES[0][1]+1.5);
+centerOn(BASES[0][0]+1.5,BASES[0][1]+1.5);camReady=true;
 // ---------- PERSON DRAWING
 function limb(x1,y1,x2,y2,w,c){g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke()}
 const HAIR=['#5a3a1e','#2a1a10','#8a5a2a','#c9a050','#7a7a74','#3a2416','#a0522d'];
@@ -605,7 +605,7 @@ function drawScaf(b){const x=b.x,y=b.y,H=Math.max(14,BD[b.type].H*.9);if(b.type=
 // ---------- INPUT
 let mx=0,my=0,drag=null,keys={},mouseIn=false;
 cv.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;mouseIn=true;if(drag){drag.x2=mx;drag.y2=my}});
-cv.addEventListener('mouseleave',()=>mouseIn=false);
+cv.addEventListener('mouseleave',()=>mouseIn=false);document.getElementById('top').addEventListener('mouseenter',()=>mouseIn=false);document.getElementById('bar').addEventListener('mouseenter',()=>mouseIn=false);addEventListener('blur',()=>{mouseIn=false;keys={}});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('mousedown',e=>{if(over)return;if(e.button==0){if(cmdMode=='amove'){const[tx,ty]=toTile(e.clientX,e.clientY);issueAMove(tx,ty);cmdMode=null;return}
  if(placing=='wall'){const t=toTile(e.clientX,e.clientY).map(Math.floor);if(!wallStart){wallStart=t;return}placeWall(wallStart,t);wallStart=null;if(!e.shiftKey)placing=null;return}
@@ -701,11 +701,11 @@ function isVis(x,y){x=Math.floor(x);y=Math.floor(y);if(x<-M||y<-M||x>=N+M||y>=N+
 function isExp(x,y){x=Math.floor(x);y=Math.floor(y);if(x<-M||y<-M||x>=N+M||y>=N+M)return false;return explored[FI(x,y)]==1}
 function seen(e){if(e.kind=='unit')return e.owner==0||isVis(e.x,e.y);if(e.kind=='bld')return e.owner==0||isExp(e.x+e.w/2,e.y+e.h/2)||isExp(e.x,e.y);if(e.kind=='res')return e.carcass?isVis(e.x+.3,e.y+.3):isExp(e.x+.5,e.y+.5);return isExp(e.x+.5,e.y+.5)}
 function reveal(cx,cy,r){const r2=r*r;for(let y=Math.floor(cy-r);y<=cy+r;y++)for(let x=Math.floor(cx-r);x<=cx+r;x++){if(x<-M||y<-M||x>=N+M||y>=N+M)continue;const dx=x+.5-cx,dy=y+.5-cy;if(dx*dx+dy*dy<=r2){const k=FI(x,y);visG[k]=1;explored[k]=1}}}
-function updateFog(){visG.fill(0);for(const u of units)if(u.owner==0)reveal(u.x,u.y,UD[u.type].los||(u.type=='villager'?4.5:5.5));
+let fogInit=false;function updateFog(){if(!fogInit){fogInit=true;reveal(BASES[0][0]+1.5,BASES[0][1]+1.5,13);}visG.fill(0);for(const u of units)if(u.owner==0)reveal(u.x,u.y,UD[u.type].los||(u.type=='villager'?4.5:5.5));
  for(const b of blds)if(b.owner==0)reveal(b.x+b.w/2,b.y+b.h/2,b.type=='tc'?8:b.type=='tower'?8:b.type=='wall'?2:b.built?4.5:2.5);
  const D=fogImg.data;for(let k=0;k<FW*FW;k++){D[k*4]=0;D[k*4+1]=0;D[k*4+2]=0;D[k*4+3]=visG[k]?0:explored[k]?120:255}fogX.putImageData(fogImg,0,0)}
 function drawFog(){g.save();g.setTransform(32,16,-32,16,OXW-camX,OYW-camY);g.imageSmoothingEnabled=true;g.drawImage(fogC,-M-.5,-M-.5);g.restore();
- const pad=1200;g.fillStyle='#000';g.save();g.setTransform(32,16,-32,16,OXW-camX,OYW-camY);g.fillRect(-M-40,-M-40,FW+80,39.6);g.fillRect(-M-40,N+M-.4,FW+80,40);g.fillRect(-M-40,-M-1,39.6,FW+2);g.fillRect(N+M-.4,-M-1,40,FW+2);g.restore()}
+ const pad=1200;g.fillStyle='#000';g.save();g.setTransform(32,16,-32,16,OXW-camX,OYW-camY);g.fillRect(-M-40,-M-40,FW+80,40.2);g.fillRect(-M-40,N+M-1,FW+80,41);g.fillRect(-M-40,-M-1,40.2,FW+2);g.fillRect(N+M-1,-M-1,41,FW+2);g.restore()}
 // ---------- LOOP
 function update(dt){time+=dt;for(const u of units.slice())if(!u.dead)updUnit(u,dt);
  for(let i=0;i<units.length;i++){const a=units[i];for(let j=i+1;j<units.length;j++){const b=units[j];const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<.34&&d>1e-4){const p=(.34-d)*.5,ux=dx/d*p,uy=dy/d*p;
@@ -744,6 +744,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
  fogT-=dt;if(fogT<=0){fogT=.25;updateFog()}hudT-=dt;if(hudT<=0){hudT=.2;hud()}mmT-=dt;if(mmT<=0){mmT=.4;drawMM()}msgT-=dt;if(msgT<=0)document.getElementById('msg').textContent='';
  requestAnimationFrame(frame)}
 window.__sim=(sec)=>{for(let i=0;i<sec*20;i++)update(.05)};window.__state=()=>({time,units:units.length,blds:blds.map(b=>b.owner+':'+b.type+(b.built?'':'*')),pl:PL.map(p=>[p.wood|0,p.food|0,p.gold|0])});
+updateFog();
 msg('Отправь крестьян добывать ресурсы: выдели их и нажми ПКМ по дереву или кусту');
 requestAnimationFrame(frame);
 </script></body></html>
