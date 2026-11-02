@@ -49,7 +49,7 @@ H — городской центр, Esc — отмена<br>
 Цель: разрушить все здания Валмора (красные)<br>
 Карта скрыта: отправь разведчика (всадник) исследовать мир<br>
 <span class="tb" id="hclose" style="display:inline-block;margin-top:6px">Понятно</span></div>
-<div id="msg"></div>
+<div id="msg"></div><div id="load" style="position:absolute;inset:0;background:#1a1208;color:#ffd970;display:flex;align-items:center;justify-content:center;font-size:28px;z-index:10;flex-direction:column;gap:10px">Загрузка карты…<span style="font-size:15px;color:#cdb98a">несколько секунд</span></div>
 <div id="bar"><div id="cmds"></div><div id="info"></div><canvas id="mm" width="232" height="132"></canvas></div>
 <div id="end"><div id="endt"></div><span class="tb" style="font-size:20px;padding:8px 18px" onclick="location.reload()">Сыграть ещё</span></div>
 <script>
@@ -90,33 +90,35 @@ for(const m of [0,1]){const S=(x,y)=>m?[y,x]:[x,y];
 // ---------- GROUND PRERENDER
 const M=9,OXW=(N+2*M)*32,OYW=2*M*16+40,GW=(N+2*M)*64,GH=(2*N+4*M)*16+80,ground=document.createElement('canvas');ground.width=GW;ground.height=GH;
 function terAt(x,y){if(x>=0&&y>=0&&x<N&&y<N)return ter[I(x,y)];const d=rd(x+.5,y+.5);return d<1.5?1:d<2.3?3:0}
-(function(){const c=ground.getContext('2d');const W=(x,y)=>[(x-y)*32+OXW,(x+y)*16+OYW];
- const HW=GW>>1,HH=GH>>1,img=new ImageData(HW,HH),D=img.data;const lerp=(a,b,t)=>a+(b-a)*t,sm=(e0,e1,v)=>{const t=Math.max(0,Math.min(1,(v-e0)/(e1-e0)));return t*t*(3-2*t)};
+function buildGround(){const FWg=N+2*M;const c=ground.getContext('2d');const W=(x,y)=>[(x-y)*32+OXW,(x+y)*16+OYW];
+ const HW=GW>>2,HH=GH>>2,img=new ImageData(HW,HH),D=img.data;const lerp=(a,b,t)=>a+(b-a)*t,sm=(e0,e1,v)=>{const t=Math.max(0,Math.min(1,(v-e0)/(e1-e0)));return t*t*(3-2*t)};
  const C=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
  const G1=C('#4a7a26'),G2=C('#6a9636'),G3=C('#8aa848'),DRY=C('#a49a52'),DIRT=C('#8a6c44'),DIRT2=C('#6e5434'),SANDW=C('#9c8458'),SANDD=C('#d4c08a'),SH=C('#5a9ab8'),DP=C('#1f5078'),FORD=C('#7aa6b8');
  const mix=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
- for(let py=0;py<HH;py++)for(let px=0;px<HW;px++){const A=(px*2-OXW)/32,B=(py*2-OYW)/16,tx=(A+B)/2,ty=(B-A)/2;
+ for(let py=0;py<HH;py++)for(let px=0;px<HW;px++){const A=(px*4-OXW)/32,B=(py*4-OYW)/16,tx=(A+B)/2,ty=(B-A)/2;
   const d=rd(tx,ty);const n1=fbm(tx*.16+3,ty*.16+7),n2=vn(tx*.55+11,ty*.55+3),n3=fbm(tx*.2+20,ty*.2+5);
   let col=n1<.5?mix(G1,G2,n1*2):mix(G2,G3,(n1-.5)*2);col=mix(col,DRY,sm(.62,.85,n2)*.45);col=mix(col,n3>.78?DIRT2:DIRT,sm(.66,.74,n3));
   if(d<3.1){const sandT=1-sm(2.25,3.0,d);col=mix(col,mix(SANDW,SANDD,sm(1.45,2.3,d)),sandT)}
-  if(d<1.55){const t=sm(1.55,.4,d);let w=mix(SH,DP,t);const fdd=Math.min(...fords.map(f=>Math.hypot(tx-f[0],ty-f[1])));w=mix(w,FORD,sm(3,1.2,fdd)*.85);const edge=sm(1.55,1.35,d);col=mix(col,w,edge)}
+  if(d<1.55){const t=sm(1.55,.4,d);let w=mix(SH,DP,t);const fdd=Math.min(Math.hypot(tx-fords[0][0],ty-fords[0][1]),Math.hypot(tx-fords[1][0],ty-fords[1][1]));w=mix(w,FORD,sm(3,1.2,fdd)*.85);const edge=sm(1.55,1.35,d);col=mix(col,w,edge)}
   const gr=(hs(px,py)-.5)*14;const k=(py*HW+px)*4;D[k]=col[0]+gr;D[k+1]=col[1]+gr;D[k+2]=col[2]+gr*.7;D[k+3]=255}
  const tmp=document.createElement('canvas');tmp.width=HW;tmp.height=HH;tmp.getContext('2d').putImageData(img,0,0);c.imageSmoothingEnabled=true;c.drawImage(tmp,0,0,GW,GH);
+ const GR=3,GWt=FWg*GR,dG=new Float32Array(GWt*GWt),nG=new Float32Array(GWt*GWt);for(let j=0;j<GWt;j++)for(let i=0;i<GWt;i++){const tx=i/GR-M,ty=j/GR-M;dG[j*GWt+i]=rd(tx,ty);nG[j*GWt+i]=fbm(tx*.2+20,ty*.2+5)}
+ const LK=(A,tx,ty)=>{const i=Math.max(0,Math.min(GWt-1,Math.round((tx+M)*GR))),j=Math.max(0,Math.min(GWt-1,Math.round((ty+M)*GR)));return A[j*GWt+i]};
  let s2=99;const r2=()=>{s2=(s2*16807)%2147483647;return s2/2147483647};
  const tileAt=(sx,sy)=>{const a=(sx-OXW)/32,b=(sy-OYW)/16;return[(a+b)/2,(b-a)/2]};
- for(let i=0;i<420000;i++){const sx=r2()*GW,sy=r2()*GH;const[tx,ty]=tileAt(sx,sy);const d=rd(tx,ty);
+ for(let i=0;i<420000;i++){const sx=r2()*GW,sy=r2()*GH;const[tx,ty]=tileAt(sx,sy);const d=LK(dG,tx,ty);
   if(d<1.45){if(r2()<.06){c.strokeStyle='rgba(210,235,255,'+(.15+r2()*.25)+')';c.lineWidth=1;c.beginPath();c.moveTo(sx,sy);c.lineTo(sx+4+r2()*10,sy+(r2()-.5));c.stroke()}
    if(fords.some(f=>Math.hypot(tx-f[0],ty-f[1])<2.3)&&r2()<.25){c.fillStyle='rgba(120,115,100,.55)';c.beginPath();c.ellipse(sx,sy,2+r2()*3,1+r2(),0,0,7);c.fill()}continue}
   if(d<2.4){if(r2()<.3){c.fillStyle=r2()<.5?'rgba(90,70,40,.25)':'rgba(255,245,210,.25)';c.fillRect(sx,sy,1.5,1)}continue}
-  const n3=fbm(tx*.2+20,ty*.2+5);if(n3>.7){if(r2()<.25){c.fillStyle=r2()<.5?'rgba(60,40,20,.35)':'rgba(190,160,110,.3)';c.fillRect(sx,sy,2,1.2)}continue}
+  const n3=LK(nG,tx,ty);if(n3>.7){if(r2()<.25){c.fillStyle=r2()<.5?'rgba(60,40,20,.35)':'rgba(190,160,110,.3)';c.fillRect(sx,sy,2,1.2)}continue}
   const sh=r2();c.strokeStyle=sh<.4?'rgba(25,55,10,.45)':sh<.75?'rgba(70,110,30,.4)':'rgba(170,205,95,.35)';c.lineWidth=1;const L=2+r2()*4;c.beginPath();c.moveTo(sx,sy);c.lineTo(sx+(r2()-.5)*2.5,sy-L);c.stroke()}
- for(let i=0;i<2400;i++){const tx=-M+r2()*(N+2*M),ty=-M+r2()*(N+2*M);const d=rd(tx,ty);if(d<2.8)continue;const[a,b]=W(tx,ty);const k=r2();
+ for(let i=0;i<2400;i++){const tx=-M+r2()*(N+2*M),ty=-M+r2()*(N+2*M);const d=LK(dG,tx,ty);if(d<2.8)continue;const[a,b]=W(tx,ty);const k=r2();
   if(k<.4){for(let j=0;j<9;j++){c.strokeStyle=j%3==0?'#2e5a18':j%3==1?'#5f9030':'#8ab850';c.lineWidth=1.1;c.beginPath();c.moveTo(a+j*.8-4,b);c.quadraticCurveTo(a+j*1.4-6,b-4,a+j*1.8-8+r2()*2,b-6-r2()*5);c.stroke()}}
   else if(k<.62){c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(a+2,b+1,5.5,2,0,0,7);c.fill();const gr=c.createRadialGradient(a-1.5,b-3,.5,a,b-1,5);gr.addColorStop(0,'#c8c4b8');gr.addColorStop(1,'#77736a');c.fillStyle=gr;c.beginPath();c.ellipse(a,b-1,4.5,3,0,0,7);c.fill()}
   else if(k<.82){const fc=['#f2e14a','#f4f0e6','#d65a8a','#9a6ad8','#f08a3a'][(r2()*5)|0];for(let j=0;j<6;j++){const fx=a+(r2()-.5)*14,fy=b+(r2()-.5)*6;c.strokeStyle='#3d6a22';c.beginPath();c.moveTo(fx,fy+3);c.lineTo(fx,fy);c.stroke();c.fillStyle=fc;c.beginPath();c.arc(fx,fy,1.3,0,7);c.fill()}}
   else{const gr=c.createRadialGradient(a-3,b-6,1,a,b-4,8);gr.addColorStop(0,'#6a9a3a');gr.addColorStop(1,'#2a4a18');c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(a+3,b+1,9,3,0,0,7);c.fill();c.fillStyle=gr;for(const[dx,dy,r]of[[-4,-4,5],[3,-4,5],[0,-7,5]]){c.beginPath();c.arc(a+dx,b+dy,r,0,7);c.fill()}}}
- for(let i=0;i<9000;i++){const sx=r2()*GW,sy=r2()*GH;const[tx,ty]=tileAt(sx,sy);const d=rd(tx,ty);if(d>1.42&&d<1.62){c.strokeStyle='rgba(240,250,255,.35)';c.lineWidth=1.2;c.beginPath();c.moveTo(sx,sy);c.lineTo(sx+5,sy+.5);c.stroke()}}
-})();
+ for(let i=0;i<9000;i++){const sx=r2()*GW,sy=r2()*GH;const[tx,ty]=tileAt(sx,sy);const d=LK(dG,tx,ty);if(d>1.42&&d<1.62){c.strokeStyle='rgba(240,250,255,.35)';c.lineWidth=1.2;c.beginPath();c.moveTo(sx,sy);c.lineTo(sx+5,sy+.5);c.stroke()}}
+}
 const grassPat=(()=>{const t=mk0(128,64,c=>{c.fillStyle='#4d7a2a';c.fillRect(0,0,128,64);let s3=7;const r3=()=>{s3=(s3*16807)%2147483647;return s3/2147483647};for(let i=0;i<500;i++){c.fillStyle=r3()<.5?'rgba(30,60,10,.35)':'rgba(170,200,90,.22)';c.fillRect(r3()*128,r3()*64,2,1+r3()*2)}});return g.createPattern(t,'repeat')})();
 function mk0(w,h,f){const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'));return c}
 const decor=[];for(let y=-16;y<N+16;y++)for(let x=-16;x<N+16;x++){if(x>=0&&y>=0&&x<N&&y<N)continue;if(terAt(x,y)!=0)continue;const edge=Math.max(-x,-y,x-N+1,y-N+1);if(hs(x*1.3,y*.7)<(edge<2?.45:.62))decor.push({kind:'decor',x,y,v:(hs(y,x)*4)|0})}
@@ -746,5 +748,5 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
 window.__sim=(sec)=>{for(let i=0;i<sec*20;i++)update(.05)};window.__state=()=>({time,units:units.length,blds:blds.map(b=>b.owner+':'+b.type+(b.built?'':'*')),pl:PL.map(p=>[p.wood|0,p.food|0,p.gold|0])});
 updateFog();
 msg('Отправь крестьян добывать ресурсы: выдели их и нажми ПКМ по дереву или кусту');
-requestAnimationFrame(frame);
+setTimeout(()=>{buildGround();document.getElementById('load').remove();last=performance.now();requestAnimationFrame(frame)},30);
 </script></body></html>
